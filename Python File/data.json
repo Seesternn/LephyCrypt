@@ -1,0 +1,6 @@
+{
+    "filename": "filename",
+    "enc_filename": "enc_filename.bin",
+    "dec_filename": "dec_filename",
+    "ram": 4
+}
