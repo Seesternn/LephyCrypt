@@ -9,7 +9,18 @@ First, you need to open the settings.exe . Then, you'll see a data.json file cre
 First, you need to open the settings.py . Then, you'll see a data.json file created. This contains settings other than your password. You can change your preferences from the same py file. enc.py encrypts your files, dec.py decrypts your files. Adjust your RAM usage according to your system, and if you're not familiar with coding or something else, it's best to stick with the default settings. The .bat file contains all the libraries you need to download. The download will begin as soon as you open it, and it was created for your convenience.
 
 # The System
-No data is saved in the system. Once your file is encrypted, it leaves no trace, and the .bin file it creates cannot be decrypted without your password. However, remember that your RAM usage during encryption must be the same as (or much) your RAM usage during decryption. For example, if it's encrypted with 2GB, it can be decrypted with >2GB. If your password is simple, this encryption is meaningless.
+No data is saved in the system. Once your file is encrypted, it leaves no trace, and the .bin file it creates cannot be decrypted without your password. However, remember that your RAM usage during encryption must be the same as (or much) your RAM usage during decryption. For example, if it's encrypted with 2GB, it can be decrypted with >=2GB. If your password is simple, this encryption is meaningless. After encrypting the file, the main file didnt delete for the security of your data's.
+
+# json File
+This is checked in the settings.py/.exe section.
+
+filename: Enter the name of the folder you will encrypt or you encrypted.
+
+enc_filename: The name of the file that your encrypted file name like enc_filename.bin.
+
+dec_filename: The name of the file created when your file is decrypted.
+
+If you manually changed it and there is a problem, delete the file and open settings.py/.exe, a new JSON file will be created.
 
 # Meaning of Ram Usage
 There are huge differences between using 1 GB of RAM and 4 GB of RAM, but the main difference is this: Hashing with 1 GB of RAM is faster, but it is less secure in terms of security because decrypting can be done quickly, but when 4 GB of RAM is used, we have to wait a certain amount of time even while encrypting. 
