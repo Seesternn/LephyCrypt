@@ -2,6 +2,9 @@
 This software is not error-free, data loss or security breach may occur.
 Even if no data loss is found in the tests performed, caution must be exercised.
 
+# VERSION
+We're currently in the **1.0.0-BETA**. While I plan to make significant changes in the future, the main program will remain unchanged. For now, it functions flawlessly with its simple and straightforward (its just beta now, dont forget) interface.
+
 # For exe Users
 First, you need to open the settings.exe . Then, you'll see a data.json file created. This contains settings other than your password. You can change your preferences from the same exe file. enc.exe encrypts your files, dec.exe decrypts your files. Adjust your RAM usage according to your system, and if you're not familiar with coding or something else, it's best to stick with the default settings.
 
