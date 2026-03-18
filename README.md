@@ -417,7 +417,7 @@ The complete, unedited security reports from the AI audit are included in this r
 | Document | Description |
 |---|---|
 | [`SECURITY_ANALYSIS.md`](SECURITY_ANALYSIS.md) | Full initial static analysis — all 17 findings with evidence, impact, and fixes |
-| [`SECURITY_PATCH_REVIEW.md`](SECURITY_PATCH_REVIEW.md) | Patch verification — confirms which findings were resolved and identifies remaining items |
+
 
 These reports were produced by Claude Sonnet 4.6 performing manual static code analysis across all source files. They are published unedited to provide full transparency about the security posture of this application.
 
