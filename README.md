@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="icons.jpg" width="96" height="96" alt="Lephy Crypt Logo" style="border-radius:20px"/>
+<img src="lephycrypt/icons.jpg" width="96" height="96" alt="Lephy Crypt Logo" style="border-radius:20px"/>
 
 # Lephy Crypt
 
