@@ -289,7 +289,6 @@ Across multiple audit rounds, the AI systems identified and the following were f
 The complete audit reports are included in this repository:
 
 - 📄 [`SECURITY_ANALYSIS.md`](SECURITY_ANALYSIS.md) — Initial full static analysis (v1.0)
-- 📄 [`SECURITY_PATCH_REVIEW.md`](SECURITY_PATCH_REVIEW.md) — Patch verification and differential review (v2.0)
 
 The final patch review was produced by **Claude Sonnet 4.6** and verified finding-by-finding against the updated source code. It confirmed 14 of 17 original findings were correctly resolved and identified remaining items for the next patch cycle.
 
@@ -318,7 +317,7 @@ python main.py
 
 ```bash
 pip install pyinstaller
-pyinstaller --onefile --windowed --name "LephyCrypt" main.py
+pyinstaller --onefile --windowed --name "LephyCrypt" --icon "icons.ico" main.py
 ```
 
 ---
