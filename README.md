@@ -28,6 +28,7 @@ It was designed with one principle: **if the cryptography is wrong, everything i
 ## Table of Contents
 
 - [Features](#-features)
+- [Password Brute-Force Time Calculator](#-password-brute-force-time-calculator)
 - [Security Architecture](#-security-architecture)
   - [Encryption Algorithm](#encryption-algorithm-aes-256-gcm)
   - [Key Derivation](#key-derivation-scrypt)
@@ -63,6 +64,19 @@ It was designed with one principle: **if the cryptography is wrong, everything i
 | **Atomic output files** | Output created with O_CREAT\|O_EXCL at 0600 — never world-readable |
 
 ---
+
+## 🔐 Password Brute-Force Time Calculator
+
+Models real brute-force cracking times based on scrypt KDF parameters. 
+**No data is sent to any server.**
+
+
+|Site                |   [LephyCrypt](https://seesternn.github.io/LephyCrypt/)    |
+| -------------------- | ----------------------------------------------- |
+
+
+-----------------------------
+
 
 ## 🔐 Security Architecture
 
