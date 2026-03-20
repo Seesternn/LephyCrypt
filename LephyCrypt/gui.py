@@ -1,6 +1,6 @@
 """
-Lephy Crypt — GUI  (v3.9, frameless, rounded corners)
-======================================================
+Lephy Crypt — GUI  (v3.9.1, frameless, rounded corners)
+========================================================
 Security fixes from patch review:
   NEW-MED-01 : MIN_PASSWORD_LENGTH = 8 restored in EncryptPage._check()
 """
@@ -14,6 +14,7 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QLineEdit, QFrame, QStackedWidget,
     QFileDialog, QProgressBar, QScrollArea, QSizeGrip, QMessageBox,
+    QSystemTrayIcon, QMenu, QAction,
 )
 from PyQt5.QtCore  import Qt, pyqtSignal, QRectF, QTimer, QPropertyAnimation, QEasingCurve
 from PyQt5.QtGui   import QIcon, QPixmap, QPainterPath, QRegion, QPainter, QLinearGradient, QColor
@@ -24,9 +25,14 @@ from crypto import (SCRYPT_PARAMS, APP_VERSION, SCRYPT_WEAK_PROFILE,
                     inspect_file, StructuralCorruptionError)
 from worker import Worker
 
+_GUI_VERSION = "3.9.1"
+
 # ── Paths ─────────────────────────────────────────────────────────────────────
 DOWNLOADS  = os.path.join(os.path.expanduser("~"), "Downloads")
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, "frozen", False):
+    SCRIPT_DIR = os.path.dirname(sys.executable)
+else:
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ICO_PATH   = os.path.join(SCRIPT_DIR, "icons.ico")
 JPG_PATH   = os.path.join(SCRIPT_DIR, "icons.jpg")
 
@@ -44,11 +50,57 @@ TXTM   = "#b0b7cc"
 TXTMM  = "#d4d8e8"
 GREEN  = "#10b981"
 
+TRAY_MENU_QSS = """
+QMenu {
+    background: #ffffff;
+    border: 1px solid #dde1ee;
+    border-radius: 12px;
+    padding: 10px 0px 8px 0px;
+    font-family: "Segoe UI", "SF Pro Text", sans-serif;
+    font-size: 13px;
+    color: #181c2e;
+}
+QMenu::item {
+    padding: 9px 24px 9px 18px;
+    border-radius: 7px;
+    margin: 1px 7px;
+    min-width: 180px;
+    font-weight: 500;
+    color: #3a3f58;
+    background: transparent;
+}
+QMenu::item:selected {
+    background: rgba(67,97,238,0.10);
+    color: #4361ee;
+}
+QMenu::item:disabled {
+    color: #b0b7cc;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    padding: 5px 24px 5px 18px;
+    margin: 0px 7px;
+    background: transparent;
+}
+QMenu::item[exit="true"] {
+    color: #d94040;
+}
+QMenu::item[exit="true"]:selected {
+    background: rgba(220,60,60,0.08);
+    color: #c23030;
+}
+QMenu::separator {
+    height: 1px;
+    background: #e8ebf5;
+    margin: 6px 14px;
+}
+"""
+
 QSS = f"""
 * {{ font-family:"Segoe UI","SF Pro Text",sans-serif; font-size:13px; outline:none; }}
 QWidget {{ background:{BG}; color:{TXT}; border:none; }}
 
-QWidget#tbar {{ background:{WHITE}; border-bottom:1px solid {BRD}; }}
+QWidget#tbar {{ background:{WHITE}; border-bottom:1px solid {BRD}; border-radius:13px 13px 0 0; }}
 QLabel#appN  {{ color:{TXT}; font-size:14px; font-weight:700; background:transparent; letter-spacing:0.2px; }}
 
 QPushButton#t {{
@@ -942,11 +994,11 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Lephy Crypt")   # INFO-01: version removed from title
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Window)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
-        self.setMinimumSize(880, 420)
-        self.resize(1040, 500)
+        self.setFixedSize(1040, 500)
         self._drag_pos = None
         self._set_icon()
         self._build()
+        self._build_tray()
 
     def _set_icon(self):
         if os.path.exists(ICO_PATH):
@@ -959,7 +1011,17 @@ class MainWindow(QMainWindow):
             self.setWindowIcon(icon)
 
     def _build(self):
-        root = QWidget(); self.setCentralWidget(root)
+        root = QFrame(); root.setObjectName("mainRoot"); self.setCentralWidget(root)
+        root.setStyleSheet(
+            "QFrame#mainRoot {"
+            "  border: 1px solid #c8ccd6;"
+            "  border-radius: 13px;"
+            "  background: #f8f9fc;"
+            "}"
+        )
+        _path = QPainterPath()
+        _path.addRoundedRect(QRectF(0, 0, 1040, 500), 13, 13)
+        root.setMask(QRegion(_path.toFillPolygon().toPolygon()))
         vl   = QVBoxLayout(root); vl.setContentsMargins(0,0,0,0); vl.setSpacing(0)
 
         self.tbar = QWidget(); self.tbar.setObjectName("tbar"); self.tbar.setFixedHeight(46)
@@ -1001,13 +1063,11 @@ class MainWindow(QMainWindow):
         vl.addWidget(self.tbar)
 
         self._stack = QStackedWidget()
+        self._stack.setStyleSheet(
+            "QStackedWidget { border-radius: 0 0 13px 13px; background: #f8f9fc; }")
         self._pages = {"enc": EncryptPage(), "dec": DecryptPage()}
         for p in self._pages.values(): self._stack.addWidget(p)
         vl.addWidget(self._stack, 1)
-
-        grip = QSizeGrip(self); grip.setFixedSize(14, 14)
-        gl = QHBoxLayout(); gl.addStretch(); gl.addWidget(grip)
-        gl.setContentsMargins(0, 0, 2, 2); vl.addLayout(gl)
 
         self._sw("enc")
 
@@ -1022,11 +1082,14 @@ class MainWindow(QMainWindow):
         self._pages["enc"].retranslate()
         self._pages["dec"].retranslate()
 
-    def resizeEvent(self, e):
+    def _apply_mask(self):
         path = QPainterPath()
         path.addRoundedRect(QRectF(self.rect()), 14, 14)
         self.setMask(QRegion(path.toFillPolygon().toPolygon()))
-        super().resizeEvent(e)
+
+    def showEvent(self, e):
+        self._apply_mask()
+        super().showEvent(e)
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton and self.tbar.geometry().contains(e.pos()):
@@ -1044,6 +1107,66 @@ class MainWindow(QMainWindow):
         for x, b in self._tabs.items():
             b.setObjectName("tOn" if x==k else "t")
             b.style().unpolish(b); b.style().polish(b)
+
+    def _build_tray(self):
+        self._tray = QSystemTrayIcon(self)
+        tray_icon = None
+        if os.path.exists(ICO_PATH):
+            tray_icon = QIcon(ICO_PATH)
+        elif os.path.exists(JPG_PATH):
+            pix = QPixmap(JPG_PATH)
+            tray_icon = QIcon()
+            for s in (16, 24, 32, 48):
+                tray_icon.addPixmap(
+                    pix.scaled(s, s, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        if tray_icon and not tray_icon.isNull():
+            self._tray.setIcon(tray_icon)
+        else:
+            self._tray.setIcon(self.windowIcon())
+        self._tray.setToolTip(f"Lephy Crypt  v{_GUI_VERSION}")
+
+        menu = QMenu()
+        menu.setStyleSheet(TRAY_MENU_QSS)
+
+        hdr = QAction(f"LEPHY CRYPT  ·  v{_GUI_VERSION}", self)
+        hdr.setEnabled(False)
+        menu.addAction(hdr)
+        menu.addSeparator()
+
+        self._show_act = QAction("🔓   Aç / Open", self)
+        self._show_act.triggered.connect(self._toggle_window)
+        menu.addAction(self._show_act)
+        menu.addSeparator()
+
+        exit_act = QAction("✕   Çıkış / Exit", self)
+        exit_act.setProperty("exit", "true")
+        exit_act.triggered.connect(QApplication.quit)
+        menu.addAction(exit_act)
+
+        self._tray.setContextMenu(menu)
+        menu.aboutToShow.connect(self._update_show_label)
+        self._tray.activated.connect(self._on_tray_activated)
+        self._tray.show()
+
+    def _update_show_label(self):
+        self._show_act.setText(
+            "🙈   Gizle / Hide" if self.isVisible() else "🔓   Aç / Open")
+
+    def _toggle_window(self):
+        if self.isVisible():
+            self.hide()
+        else:
+            self.show()
+            self.raise_()
+            self.activateWindow()
+
+    def _on_tray_activated(self, reason):
+        if reason == QSystemTrayIcon.Trigger:
+            self._toggle_window()
+
+    def closeEvent(self, event):
+        event.ignore()
+        self.hide()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1230,13 +1353,12 @@ class SplashScreen(QWidget):
     Displays logo, app name, tagline and EN/TR language selector.
     Emits `done` with selected language code after the delay.
     """
-    done = pyqtSignal(str)   # emits language code "en" / "tr"
+    done = pyqtSignal(str)
 
     _SPLASH_W = 520
     _SPLASH_H = 340
-    _HOLD_MS  = 3000         # visible duration before main window opens
+    _HOLD_MS  = 3000
 
-    # Colour palette (dark, matches brand blue accent)
     _BG_TOP   = QColor("#0d1021")
     _BG_BOT   = QColor("#131729")
     _ACCENT   = QColor("#4361ee")
@@ -1248,25 +1370,21 @@ class SplashScreen(QWidget):
     def __init__(self, default_lang: str = "en"):
         super().__init__()
         self._selected_lang = default_lang
-        self._anim          = None   # keep reference alive
+        self._anim          = None
 
-        # ── window flags ──────────────────────────────────────────────────────
         self.setWindowFlags(
             Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setFixedSize(self._SPLASH_W, self._SPLASH_H)
         self._center_on_screen()
 
-        # ── root layout ───────────────────────────────────────────────────────
         root = QVBoxLayout(self)
         root.setContentsMargins(48, 44, 48, 40)
         root.setSpacing(0)
 
-        # ── logo + title row ──────────────────────────────────────────────────
         logo_row = QHBoxLayout(); logo_row.setSpacing(14)
         logo_row.setContentsMargins(0, 0, 0, 0)
 
-        # Shield / lock icon drawn as a simple widget
         self._icon_lbl = QLabel()
         self._icon_lbl.setFixedSize(54, 54)
         self._icon_lbl.setStyleSheet("""
@@ -1300,13 +1418,11 @@ class SplashScreen(QWidget):
         root.addLayout(logo_row)
         root.addSpacing(36)
 
-        # ── divider ───────────────────────────────────────────────────────────
         div = QFrame(); div.setFixedHeight(1)
         div.setStyleSheet("background: rgba(255,255,255,0.07); border: none;")
         root.addWidget(div)
         root.addSpacing(32)
 
-        # ── language selector label ───────────────────────────────────────────
         self._lang_hint = QLabel(LangManager.t("select_lang"))
         self._lang_hint.setStyleSheet(
             "color: #6b738f; font-size: 11px; font-weight: 600;"
@@ -1315,7 +1431,6 @@ class SplashScreen(QWidget):
         root.addWidget(self._lang_hint)
         root.addSpacing(14)
 
-        # ── language buttons ──────────────────────────────────────────────────
         btn_row = QHBoxLayout(); btn_row.setSpacing(12)
         btn_row.setContentsMargins(0, 0, 0, 0)
 
@@ -1329,7 +1444,6 @@ class SplashScreen(QWidget):
 
         root.addStretch()
 
-        # ── loading label + progress bar ──────────────────────────────────────
         self._loading_lbl = QLabel(LangManager.t("loading"))
         self._loading_lbl.setStyleSheet(
             "color: #6b738f; font-size: 11px; background: transparent;")
@@ -1356,26 +1470,21 @@ class SplashScreen(QWidget):
         """)
         root.addWidget(self._bar)
 
-        # ── version badge ─────────────────────────────────────────────────────
         root.addSpacing(8)
-        ver = QLabel(f"v{APP_VERSION}")
+        ver = QLabel(f"v{_GUI_VERSION}")
         ver.setStyleSheet(
             "color: rgba(107,115,143,0.55); font-size: 10px; background: transparent;")
         ver.setAlignment(Qt.AlignCenter)
         root.addWidget(ver)
 
-        # ── opacity fade-in ───────────────────────────────────────────────────
         self._opacity_fx = QGraphicsOpacityEffect(self)
         self._opacity_fx.setOpacity(0.0)
         self.setGraphicsEffect(self._opacity_fx)
 
-        # ── timer chain ───────────────────────────────────────────────────────
-        # Fade in immediately
         QTimer.singleShot(0,   self._fade_in)
-        # Start progress bar after a brief moment
         QTimer.singleShot(200, self._start_progress)
 
-        self._select_lang(default_lang)   # pre-select language from argument
+        self._select_lang(default_lang)
 
     # ── helpers ───────────────────────────────────────────────────────────────
 
@@ -1422,7 +1531,6 @@ class SplashScreen(QWidget):
         LangManager.set(code)
         self._btn_en.setStyleSheet(self._lang_btn_style(code == "en"))
         self._btn_tr.setStyleSheet(self._lang_btn_style(code == "tr"))
-        # Update dynamic strings
         self._tagline_lbl.setText(LangManager.t("tagline"))
         self._lang_hint.setText(LangManager.t("select_lang"))
         self._loading_lbl.setText(LangManager.t("loading"))
@@ -1438,9 +1546,8 @@ class SplashScreen(QWidget):
         self._anim.start()
 
     def _start_progress(self):
-        """Advances the progress bar over _HOLD_MS, then emits done."""
         self._progress_timer = QTimer(self)
-        self._progress_timer.setInterval(30)   # ~33 fps
+        self._progress_timer.setInterval(30)
         self._elapsed = 0
         self._progress_timer.timeout.connect(self._tick_progress)
         self._progress_timer.start()
@@ -1454,7 +1561,6 @@ class SplashScreen(QWidget):
             self._launch()
 
     def _launch(self):
-        """Fade out then emit done."""
         self._anim = QPropertyAnimation(self._opacity_fx, b"opacity")
         self._anim.setDuration(280)
         self._anim.setStartValue(1.0)
@@ -1497,9 +1603,16 @@ class SplashScreen(QWidget):
 # ══════════════════════════════════════════════════════════════════════════════
 
 def run(default_lang: str = "en"):
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Lephy.Crypt")
+        except Exception:
+            pass
     if hasattr(Qt, "AA_EnableHighDpiScaling"):
         QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
     app.setApplicationName("Lephy Crypt")
     app.setApplicationVersion(APP_VERSION)   # available via About dialog if added
     app.setStyleSheet(QSS)
