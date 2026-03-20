@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lephy Crypt — Brute-Force Hesaplayıcı</title>
+<style>
+  :root {
+    --bg: #f8f9fc; --card: #ffffff; --border: #e4e7f0;
+    --border2: #cdd2e8; --txt: #181c2e; --txt2: #6b738f; --txt3: #b0b7cc;
+    --blue: #4361ee; --green: #10b981; --amber: #f59e0b;
+    --red: #ef4444; --teal: #0d9488;
+    --info-bg: #eff6ff; --info-txt: #1d4ed8;
+    --warn-bg: #fffbeb; --warn-txt: #b45309;
+    --succ-bg: #f0fdf4; --succ-txt: #15803d;
+    --dang-bg: #fef2f2; --dang-txt: #b91c1c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111318; --card: #1c1f27; --border: #2a2f3d;
+      --border2: #363c50; --txt: #e8eaf0; --txt2: #8b93ab; --txt3: #4a5068;
+      --blue: #6478f5; --green: #34d399; --amber: #fbbf24;
+      --red: #f87171; --teal: #2dd4bf;
+      --info-bg: #1e2a45; --info-txt: #93c5fd;
+      --warn-bg: #2d2008; --warn-txt: #fcd34d;
+      --succ-bg: #052e16; --succ-txt: #86efac;
+      --dang-bg: #2d0a0a; --dang-txt: #fca5a5;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--txt);
+    min-height: 100vh; padding: 2rem 1rem;
+  }
+  .container { max-width: 860px; margin: 0 auto; }
+
+  /* ── Language overlay ── */
+  #lang-overlay {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+    transition: opacity 0.3s ease;
+  }
+  #lang-overlay.hidden { opacity: 0; pointer-events: none; }
+  .lang-box {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 2.5rem 2.5rem 2rem;
+    text-align: center; max-width: 360px; width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.08);
+  }
+  .lang-box .lock { font-size: 36px; margin-bottom: 1rem; }
+  .lang-box h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .lang-box p  { font-size: 13px; color: var(--txt2); margin-bottom: 1.5rem; }
+  .lang-btns { display: flex; gap: 10px; justify-content: center; }
+  .lang-btn {
+    flex: 1; padding: 11px 0; border-radius: 10px; border: 1.5px solid var(--border2);
+    background: var(--bg); color: var(--txt2); font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s; display: flex; align-items: center;
+    justify-content: center; gap: 8px;
+  }
+  .lang-btn:hover { border-color: var(--blue); color: var(--blue); background: var(--info-bg); }
+  .lang-btn.active {
+    background: var(--blue); color: #fff; border-color: var(--blue);
+  }
+
+  /* ── Main content ── */
+  #main-content { display: none; }
+  #main-content.visible { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: none; } }
+
+  header { margin-bottom: 2rem; display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  header h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  header p  { font-size: 13px; color: var(--txt2); }
+  .header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .version-badge {
+    display: inline-block; font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 99px;
+    background: var(--info-bg); color: var(--info-txt);
+  }
+  .lang-switch-btn {
+    font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 99px;
+    background: var(--bg); border: 1px solid var(--border2); color: var(--txt2);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .lang-switch-btn:hover { border-color: var(--blue); color: var(--blue); }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1rem;
+  }
+  .card-title {
+    font-size: 13px; font-weight: 700; color: var(--txt);
+    margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;
+  }
+  .card-title .pill {
+    font-size: 10px; font-weight: 600; padding: 2px 8px;
+    border-radius: 99px; background: var(--info-bg); color: var(--info-txt);
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  @media (max-width: 600px) {
+    .grid-2 { grid-template-columns: 1fr; }
+    .grid-4 { grid-template-columns: 1fr 1fr; }
+  }
+
+  .ctrl label {
+    display: block; font-size: 12px; font-weight: 500;
+    color: var(--txt2); margin-bottom: 5px;
+  }
+  .ctrl select, .ctrl input[type="text"], .ctrl input[type="password"] {
+    width: 100%; padding: 8px 10px; font-size: 13px;
+    border: 1px solid var(--border2); border-radius: 8px;
+    background: var(--bg); color: var(--txt);
+    cursor: pointer;
+  }
+  .ctrl select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b738f' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center;
+    padding-right: 28px;
+  }
+  .ctrl select:focus, .ctrl input:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+  .ctrl input[type="text"], .ctrl input[type="password"] { cursor: text; letter-spacing: 0; }
+
+  /* Password input row */
+  .pw-row { display: flex; gap: 8px; align-items: flex-end; }
+  .pw-row .ctrl { flex: 1; }
+  .pw-toggle {
+    padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border2);
+    background: var(--bg); color: var(--txt2); font-size: 13px;
+    cursor: pointer; white-space: nowrap; height: 36px; transition: all 0.15s;
+  }
+  .pw-toggle:hover { border-color: var(--blue); color: var(--blue); }
+
+  /* Analyzer result */
+  .analyzer-result {
+    margin-top: 1rem; padding: 1rem 1.25rem;
+    border-radius: 10px; border: 1px solid var(--border);
+    background: var(--bg); display: none;
+  }
+  .analyzer-result.visible { display: block; animation: fadeIn 0.2s ease; }
+  .ar-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+  @media (max-width: 500px) { .ar-grid { grid-template-columns: 1fr 1fr; } }
+  .ar-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+  .ar-card .lbl { font-size: 11px; color: var(--txt3); margin-bottom: 3px; }
+  .ar-card .val { font-size: 14px; font-weight: 700; color: var(--txt); }
+  .ar-verdict {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  }
+  .ar-verdict .icon { font-size: 18px; }
+  .ar-strength-bar { height: 6px; border-radius: 3px; background: var(--border); margin-top: 8px; overflow: hidden; }
+  .ar-strength-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease, background 0.4s ease; }
+
+  .info-bar { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 1rem; }
+  @media (max-width: 600px) { .info-bar { grid-template-columns: 1fr 1fr; } }
+  .info-card {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px;
+  }
+  .info-card .lbl { font-size: 11px; color: var(--txt3); margin-bottom: 3px; }
+  .info-card .val { font-size: 13px; font-weight: 600; color: var(--txt); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left; padding: 8px 12px;
+    font-size: 11px; font-weight: 600; color: var(--txt2);
+    border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  thead th:not(:first-child) { text-align: right; }
+  tbody tr { transition: background 0.1s; }
+  tbody tr:hover { background: var(--bg); }
+  tbody td {
+    padding: 10px 12px; color: var(--txt);
+    border-bottom: 1px solid var(--border);
+  }
+  tbody td:not(:first-child) { text-align: right; }
+  tbody td:first-child { font-weight: 500; }
+  tbody tr.highlight-row td { background: rgba(67,97,238,0.05); }
+  tbody tr.highlight-row td:first-child { color: var(--blue); font-weight: 700; }
+  .mono { font-family: "SF Mono", "Fira Code", monospace; font-size: 12px; color: var(--txt2); }
+
+  .badge {
+    display: inline-block; padding: 3px 9px;
+    border-radius: 99px; font-size: 11px; font-weight: 600;
+  }
+  .b-red    { background: var(--dang-bg); color: var(--dang-txt); }
+  .b-amber  { background: var(--warn-bg); color: var(--warn-txt); }
+  .b-green  { background: var(--succ-bg); color: var(--succ-txt); }
+  .b-info   { background: var(--info-bg); color: var(--info-txt); }
+
+  .sec-bar-wrap { margin-top: 4px; background: var(--border); border-radius: 3px; height: 4px; width: 100px; }
+  .sec-bar { height: 4px; border-radius: 3px; transition: width 0.3s; }
+
+  .note {
+    font-size: 12px; color: var(--txt2); line-height: 1.7;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 14px; margin-top: 1rem;
+  }
+  .note strong { color: var(--txt); }
+
+  .physics-note {
+    border-left: 3px solid var(--blue);
+    background: var(--info-bg); color: var(--info-txt);
+    padding: 10px 14px; border-radius: 0 8px 8px 0;
+    font-size: 12px; line-height: 1.6; margin-top: 1rem;
+  }
+
+  /* Profile tier badges in selector */
+  .tier-extreme { color: #7c3aed; }
+  .tier-insane  { color: #be185d; }
+  .tier-max     { color: #b91c1c; }
+
+  footer {
+    margin-top: 2rem; padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    font-size: 11px; color: var(--txt3); text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<!-- Language selector overlay -->
+<div id="lang-overlay">
+  <div class="lang-box">
+    <div class="lock">🔒</div>
+    <h2>Lephy Crypt</h2>
+    <p id="lang-sub">Select your language / Dil seçin</p>
+    <div class="lang-btns">
+      <button class="lang-btn" onclick="setLang('tr')">🇹🇷 Türkçe</button>
+      <button class="lang-btn" onclick="setLang('en')">🇬🇧 English</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main content -->
+<div id="main-content">
+<div class="container">
+
+  <header>
+    <div>
+      <h1 id="h-title">Lephy Crypt <span class="version-badge">v3.9.1</span></h1>
+      <p id="h-sub"></p>
+    </div>
+    <div class="header-right">
+      <button class="lang-switch-btn" onclick="switchLang()" id="lang-switch-btn"></button>
+    </div>
+  </header>
+
+  <!-- Password Analyzer -->
+  <div class="card" style="margin-bottom:1rem">
+    <div class="card-title" id="a-title"></div>
+    <div class="grid-2" style="margin-bottom:12px">
+      <div class="ctrl">
+        <label id="a-lbl-pw"></label>
+        <div class="pw-row">
+          <div class="ctrl" style="margin:0">
+            <input type="password" id="pw-input" oninput="analyzePassword()" autocomplete="off" spellcheck="false">
+          </div>
+          <button class="pw-toggle" id="pw-toggle-btn" onclick="togglePwVis()">👁</button>
+        </div>
+      </div>
+      <div class="ctrl">
+        <label id="a-lbl-prof"></label>
+        <select id="a-profile" onchange="analyzePassword()"></select>
+      </div>
+      <div class="ctrl">
+        <label id="a-lbl-attacker"></label>
+        <select id="a-attacker" onchange="analyzePassword()"></select>
+      </div>
+      <div class="ctrl">
+        <label id="a-lbl-method"></label>
+        <select id="a-method" onchange="analyzePassword()"></select>
+      </div>
+    </div>
+    <div class="analyzer-result" id="analyzer-result">
+      <div class="ar-grid" id="ar-grid"></div>
+      <div class="ar-verdict" id="ar-verdict"></div>
+      <div class="ar-strength-bar"><div class="ar-strength-fill" id="ar-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="card">
+    <div class="grid-2" style="margin-bottom:14px">
+      <div class="ctrl">
+        <label id="lbl-charset"></label>
+        <select id="charset" onchange="render()"></select>
+      </div>
+      <div class="ctrl">
+        <label id="lbl-profile"></label>
+        <select id="profile" onchange="render()"></select>
+      </div>
+      <div class="ctrl">
+        <label id="lbl-attacker"></label>
+        <select id="attacker" onchange="render()"></select>
+      </div>
+      <div class="ctrl">
+        <label id="lbl-method"></label>
+        <select id="method" onchange="render()"></select>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-bar" id="infobar"></div>
+
+  <div class="card" style="padding:0;overflow:hidden">
+    <table>
+      <thead>
+        <tr>
+          <th id="th-len"></th>
+          <th id="th-comb"></th>
+          <th id="th-time"></th>
+          <th id="th-sec"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="note" id="note"></div>
+  <div class="physics-note" id="physics"></div>
+
+  <footer id="footer"></footer>
+
+</div>
+</div>
+
+<script>
+// ── Language strings ──────────────────────────────────────────────────────────
+const STRINGS = {
+  tr: {
+    h_title_suffix:   "— Brute-Force Kırma Süresi Hesaplayıcı",
+    h_sub:            "scrypt KDF parametrelerine dayalı gerçek brute-force hesaplama sürelerini modelleyen araç. İnternet bağlantısı gerekmez.",
+    lang_switch:      "🇬🇧 English",
+    a_title:          "Şifre Analizi",
+    a_pill:           "Anlık",
+    a_lbl_pw:         "Şifrenizi girin",
+    a_pw_ph:          "Şifrenizi buraya yazın…",
+    a_lbl_prof:       "Şifreleme Profili",
+    a_lbl_attacker:   "Saldırgan Kapasitesi",
+    a_lbl_method:     "Saldırı Yöntemi",
+    ar_combinations:  "Kombinasyon",
+    ar_charset:       "Karakter Havuzu",
+    ar_length:        "Uzunluk",
+    ar_cracktime:     "Kırma Süresi",
+    lbl_charset:      "Şifre Karakter Seti",
+    lbl_profile:      "scrypt Güvenlik Profili",
+    lbl_attacker:     "Saldırgan Kapasitesi",
+    lbl_method:       "Saldırı Yöntemi",
+    charset_opts: [
+      ["10",  "Yalnızca rakam (0–9) · 10 karakter"],
+      ["26",  "Yalnızca küçük harf · 26 karakter"],
+      ["52",  "Büyük + küçük harf · 52 karakter"],
+      ["62",  "Alfanümerik (a-zA-Z0-9) · 62 karakter"],
+      ["95",  "Tam ASCII baskılanabilir · 95 karakter"],
+    ],
+    profile_opts: [
+      ["light",    "Light — N=2¹³, 8 MB RAM/hash"],
+      ["balanced", "Balanced — N=2¹⁴, 16 MB RAM/hash"],
+      ["standard", "Standard — N=2¹⁵, 32 MB RAM/hash"],
+      ["high",     "High — N=2¹⁶, 64 MB RAM/hash"],
+      ["ultra",    "Ultra — N=2¹⁷, 128 MB RAM/hash"],
+      ["extreme",  "Extreme — N=2¹⁸, 256 MB RAM/hash"],
+      ["insane",   "Insane — N=2¹⁹, 512 MB RAM/hash"],
+      ["max",      "Max — N=2²⁰, 1024 MB RAM/hash"],
+    ],
+    attacker_opts: [
+      ["1", "Meraklı · 1× RTX 4090"],
+      ["2", "Organize Suç · 100× GPU kümesi"],
+      ["3", "Ulus-devlet · 100.000× GPU kümesi"],
+    ],
+    method_opts: [
+      ["exhaust", "Tam Brute-Force (tüm kombinasyonlar)"],
+      ["half",    "İstatistiksel (ortalama — keyspace/2)"],
+    ],
+    th_len:   "Şifre Uzunluğu",
+    th_comb:  "Toplam Kombinasyon",
+    th_time:  "Kırma Süresi",
+    th_sec:   "Güvenlik Düzeyi",
+    ib_profile: "Profil",
+    ib_mem:    "RAM / Deneme",
+    ib_rate:   "Hash Hızı",
+    ib_cs:     "Karakter Havuzu",
+    time_instant: "< 1 saniye",
+    time_sec:  "saniye",
+    time_min:  "dakika",
+    time_hr:   "saat",
+    time_day:  "gün",
+    time_yr:   "yıl",
+    time_kyr:  "bin yıl",
+    time_myr:  "milyon yıl",
+    time_byr:  "milyar yıl",
+    time_tryr: "trilyon yıl",
+    time_univ: "(evrenin yaşının ötesinde)",
+    b_instant: "Anında kırılır",
+    b_hours:   "Saatler içinde",
+    b_days:    "Günler içinde",
+    b_years:   "Yıllar içinde",
+    b_decades: "Onlarca-yüzlerce yıl",
+    b_kyr:     "Binlerce yıl",
+    b_myr:     "Milyonlarca yıl",
+    b_phys:    "Fiziksel olarak imkânsız",
+    unit_char: "karakter",
+    unit_hps:  "H/sn",
+    verdict_weak:   "⚠️  Zayıf şifre",
+    verdict_medium: "🟡  Orta güçte",
+    verdict_strong: "✅  Güçlü şifre",
+    verdict_fort:   "🔒  Kırılamaz",
+    note_method:    "Hesap Yöntemi",
+    note_ram:       "RAM / Deneme",
+    note_total_ram: "Toplam RAM",
+    note_total_rate:"Toplam Hash Hızı",
+    note_warning:   "Önemli Uyarı",
+    note_warn_body: "Bu hesaplar <em>pure brute-force</em> için geçerlidir. Gerçek kelimeler, keyboard walk (qwerty...), veya tahmin edilebilir şifre kalıpları sözlük saldırılarıyla milyonlarca kat daha hızlı kırılır. Güvenli şifre için rastgele oluşturulmuş, en az 12 karakterli kombinasyon kullan.",
+    phys_title:     "Fiziksel Gerçeklik Testi",
+    phys_body:      "Evrenin tahmini yaşı ~13,8 milyar yıldır. Tüm maddenin enerji kapasitesini hesaba katan <em>Landauer Sınırı</em>'na göre tek bir bit işlemi minimum enerji gerektirir — sonsuz enerji kaynağı ile bile bit operasyonları sınırlıdır. 16+ karakter tam ASCII şifre için Ultra profilde kırma süresi evrenin yaşını birçok kez aşar. Bu noktada güvenlik artık teorik değil, <strong>fizik yasalarıyla garanti altındadır</strong>.",
+    footer:         "Lephy Crypt Brute-Force Hesaplayıcı — Tüm hesaplamalar tarayıcıda BigInt ile yapılır. Hiçbir veri sunucuya gönderilmez.<br>© 2025 Lephy Crypt. Tüm hakları saklıdır.",
+    note_for_profile: "için",
+    note_profile_label: "profil",
+  },
+  en: {
+    h_title_suffix:   "— Brute-Force Time Calculator",
+    h_sub:            "Models real brute-force cracking times based on scrypt KDF parameters. No internet connection required.",
+    lang_switch:      "🇹🇷 Türkçe",
+    a_title:          "Password Analysis",
+    a_pill:           "Live",
+    a_lbl_pw:         "Enter your password",
+    a_pw_ph:          "Type your password here…",
+    a_lbl_prof:       "Encryption Profile",
+    a_lbl_attacker:   "Attacker Capacity",
+    a_lbl_method:     "Attack Method",
+    ar_combinations:  "Combinations",
+    ar_charset:       "Character Pool",
+    ar_length:        "Length",
+    ar_cracktime:     "Crack Time",
+    lbl_charset:      "Password Character Set",
+    lbl_profile:      "scrypt Security Profile",
+    lbl_attacker:     "Attacker Capacity",
+    lbl_method:       "Attack Method",
+    charset_opts: [
+      ["10",  "Digits only (0–9) · 10 chars"],
+      ["26",  "Lowercase only · 26 chars"],
+      ["52",  "Upper + lowercase · 52 chars"],
+      ["62",  "Alphanumeric (a-zA-Z0-9) · 62 chars"],
+      ["95",  "Full printable ASCII · 95 chars"],
+    ],
+    profile_opts: [
+      ["light",    "Light — N=2¹³, 8 MB RAM/hash"],
+      ["balanced", "Balanced — N=2¹⁴, 16 MB RAM/hash"],
+      ["standard", "Standard — N=2¹⁵, 32 MB RAM/hash"],
+      ["high",     "High — N=2¹⁶, 64 MB RAM/hash"],
+      ["ultra",    "Ultra — N=2¹⁷, 128 MB RAM/hash"],
+      ["extreme",  "Extreme — N=2¹⁸, 256 MB RAM/hash"],
+      ["insane",   "Insane — N=2¹⁹, 512 MB RAM/hash"],
+      ["max",      "Max — N=2²⁰, 1024 MB RAM/hash"],
+    ],
+    attacker_opts: [
+      ["1", "Curious · 1× RTX 4090"],
+      ["2", "Organized Crime · 100× GPU cluster"],
+      ["3", "Nation-state · 100,000× GPU cluster"],
+    ],
+    method_opts: [
+      ["exhaust", "Full Brute-Force (all combinations)"],
+      ["half",    "Statistical (average — keyspace/2)"],
+    ],
+    th_len:   "Password Length",
+    th_comb:  "Total Combinations",
+    th_time:  "Crack Time",
+    th_sec:   "Security Level",
+    ib_profile: "Profile",
+    ib_mem:    "RAM / Attempt",
+    ib_rate:   "Hash Rate",
+    ib_cs:     "Character Pool",
+    time_instant: "< 1 second",
+    time_sec:  "seconds",
+    time_min:  "minutes",
+    time_hr:   "hours",
+    time_day:  "days",
+    time_yr:   "years",
+    time_kyr:  "thousand years",
+    time_myr:  "million years",
+    time_byr:  "billion years",
+    time_tryr: "trillion years",
+    time_univ: "(beyond the age of the universe)",
+    b_instant: "Cracked instantly",
+    b_hours:   "Within hours",
+    b_days:    "Within days",
+    b_years:   "Within years",
+    b_decades: "Decades to centuries",
+    b_kyr:     "Thousands of years",
+    b_myr:     "Millions of years",
+    b_phys:    "Physically impossible",
+    unit_char: "chars",
+    unit_hps:  "H/s",
+    verdict_weak:   "⚠️  Weak password",
+    verdict_medium: "🟡  Moderate strength",
+    verdict_strong: "✅  Strong password",
+    verdict_fort:   "🔒  Uncrackable",
+    note_method:    "Method",
+    note_ram:       "RAM / Attempt",
+    note_total_ram: "Total RAM",
+    note_total_rate:"Total Hash Rate",
+    note_warning:   "Important Warning",
+    note_warn_body: "These calculations apply to <em>pure brute-force</em> attacks. Real words, keyboard walks (qwerty...), or predictable patterns are cracked millions of times faster via dictionary attacks. Use a randomly generated password of at least 12 characters for real security.",
+    phys_title:     "Physical Reality Check",
+    phys_body:      "The estimated age of the universe is ~13.8 billion years. According to the <em>Landauer Limit</em>, even with infinite energy, bit operations are physically bounded. A 16+ character full-ASCII password encrypted with Ultra profile takes longer to crack than the age of the universe — at that point security is not theoretical, it is <strong>guaranteed by the laws of physics</strong>.",
+    footer:         "Lephy Crypt Brute-Force Calculator — All calculations run in-browser using BigInt. No data is sent to any server.<br>© 2025 Lephy Crypt. All rights reserved.",
+    note_for_profile: "for",
+    note_profile_label: "profile",
+  }
+};
+
+// ── Profile data ──────────────────────────────────────────────────────────────
+const RATES = {
+  light:    { 1: 12_000n,  2: 1_200_000n,  3: 1_200_000_000n },
+  balanced: { 1: 6_000n,   2: 600_000n,    3: 600_000_000n   },
+  standard: { 1: 3_000n,   2: 300_000n,    3: 300_000_000n   },
+  high:     { 1: 1_600n,   2: 160_000n,    3: 160_000_000n   },
+  ultra:    { 1: 800n,     2: 80_000n,     3: 80_000_000n    },
+  extreme:  { 1: 400n,     2: 40_000n,     3: 40_000_000n    },
+  insane:   { 1: 200n,     2: 20_000n,     3: 20_000_000n    },
+  max:      { 1: 100n,     2: 10_000n,     3: 10_000_000n    },
+};
+
+const PROFILE_INFO = {
+  light:    { N: '2¹³', mem: '8 MB',    mem_gb: 0.008 },
+  balanced: { N: '2¹⁴', mem: '16 MB',   mem_gb: 0.016 },
+  standard: { N: '2¹⁵', mem: '32 MB',   mem_gb: 0.032 },
+  high:     { N: '2¹⁶', mem: '64 MB',   mem_gb: 0.064 },
+  ultra:    { N: '2¹⁷', mem: '128 MB',  mem_gb: 0.128 },
+  extreme:  { N: '2¹⁸', mem: '256 MB',  mem_gb: 0.256 },
+  insane:   { N: '2¹⁹', mem: '512 MB',  mem_gb: 0.512 },
+  max:      { N: '2²⁰', mem: '1024 MB', mem_gb: 1.024 },
+};
+
+const SEC_MIN = 60n, SEC_HR = 3600n, SEC_DAY = 86400n, SEC_YR = 31557600n;
+const UNIVERSE_AGE_YR = 13_800_000_000n;
+
+let currentLang = 'tr';
+let pwVisible = false;
+
+// ── Language ──────────────────────────────────────────────────────────────────
+function setLang(lang) {
+  currentLang = lang;
+  const overlay = document.getElementById('lang-overlay');
+  overlay.classList.add('hidden');
+  setTimeout(() => { overlay.style.display = 'none'; }, 300);
+  document.getElementById('main-content').classList.add('visible');
+  applyLang();
+  render();
+  analyzePassword();
+}
+
+function switchLang() {
+  currentLang = currentLang === 'tr' ? 'en' : 'tr';
+  applyLang();
+  render();
+  analyzePassword();
+}
+
+function S(key) { return STRINGS[currentLang][key]; }
+
+function applyLang() {
+  const s = STRINGS[currentLang];
+  document.getElementById('h-title').innerHTML =
+    `Lephy Crypt <span class="version-badge">v3.9.1</span> ${s.h_title_suffix}`;
+  document.getElementById('h-sub').textContent = s.h_sub;
+  document.getElementById('lang-switch-btn').textContent = s.lang_switch;
+  document.getElementById('a-title').innerHTML =
+    `${s.a_title} <span class="pill">${s.a_pill}</span>`;
+  document.getElementById('a-lbl-pw').textContent = s.a_lbl_pw;
+  document.getElementById('pw-input').placeholder = s.a_pw_ph;
+  document.getElementById('a-lbl-prof').textContent = s.a_lbl_prof;
+  document.getElementById('a-lbl-attacker').textContent = s.a_lbl_attacker;
+  document.getElementById('a-lbl-method').textContent = s.a_lbl_method;
+  document.getElementById('lbl-charset').textContent = s.lbl_charset;
+  document.getElementById('lbl-profile').textContent = s.lbl_profile;
+  document.getElementById('lbl-attacker').textContent = s.lbl_attacker;
+  document.getElementById('lbl-method').textContent = s.lbl_method;
+  document.getElementById('th-len').textContent = s.th_len;
+  document.getElementById('th-comb').textContent = s.th_comb;
+  document.getElementById('th-time').textContent = s.th_time;
+  document.getElementById('th-sec').textContent = s.th_sec;
+  document.getElementById('footer').innerHTML = s.footer;
+
+  // Rebuild selects preserving current value
+  rebuildSelect('charset',   s.charset_opts,  '95');
+  rebuildSelect('profile',   s.profile_opts,  'ultra');
+  rebuildSelect('attacker',  s.attacker_opts, '2');
+  rebuildSelect('method',    s.method_opts,   'exhaust');
+  rebuildSelect('a-profile', s.profile_opts,  'ultra');
+  rebuildSelect('a-attacker',s.attacker_opts, '2');
+  rebuildSelect('a-method',  s.method_opts,   'exhaust');
+}
+
+function rebuildSelect(id, opts, defaultVal) {
+  const sel = document.getElementById(id);
+  const cur = sel.value || defaultVal;
+  sel.innerHTML = '';
+  opts.forEach(([v, t]) => {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = t;
+    if (v === cur) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtCombinations(n) {
+  if (n < 1_000n) return n.toString();
+  if (n < 1_000_000n) return (Number(n)/1e3).toFixed(1) + ' K';
+  if (n < 1_000_000_000n) return (Number(n)/1e6).toFixed(2) + (currentLang==='tr' ? ' Milyon' : ' Million');
+  if (n < 1_000_000_000_000n) return (Number(n)/1e9).toFixed(2) + (currentLang==='tr' ? ' Milyar' : ' Billion');
+  if (n < 1_000_000_000_000_000n) return (Number(n)/1e12).toFixed(2) + (currentLang==='tr' ? ' Trilyon' : ' Trillion');
+  return '10^' + (n.toString().length - 1);
+}
+
+function fmtTime(secs) {
+  const s = STRINGS[currentLang];
+  if (secs === 0n) return s.time_instant;
+  if (secs < 2n)   return '~1 ' + s.time_sec.replace(/s$/,'');
+  if (secs < SEC_MIN)  return secs + ' ' + s.time_sec;
+  if (secs < SEC_HR)   return (secs / SEC_MIN) + ' ' + s.time_min;
+  if (secs < SEC_DAY)  return (secs / SEC_HR) + ' ' + s.time_hr;
+  if (secs < SEC_YR)   return (secs / SEC_DAY) + ' ' + s.time_day;
+  const yr = secs / SEC_YR;
+  if (yr < 1_000n)                 return yr + ' ' + s.time_yr;
+  if (yr < 1_000_000n)             return (yr / 1000n) + ' ' + s.time_kyr;
+  if (yr < 1_000_000_000n)         return (yr / 1_000_000n) + ' ' + s.time_myr;
+  if (yr < 1_000_000_000_000n)     return (yr / 1_000_000_000n) + ' ' + s.time_byr;
+  if (yr < 1_000_000_000_000_000n) return (yr / 1_000_000_000_000n) + ' ' + s.time_tryr;
+  return '10^' + yr.toString().length + ' ' + s.time_yr;
+}
+
+function badge(secs) {
+  const s = STRINGS[currentLang];
+  const yr = secs / SEC_YR;
+  if (secs < SEC_HR)       return ['b-red',   s.b_instant];
+  if (secs < SEC_DAY)      return ['b-red',   s.b_hours];
+  if (yr < 1n)             return ['b-red',   s.b_days];
+  if (yr < 100n)           return ['b-amber', s.b_years];
+  if (yr < 100_000n)       return ['b-amber', s.b_decades];
+  if (yr < 1_000_000n)     return ['b-green', s.b_kyr];
+  if (yr < 1_000_000_000n) return ['b-green', s.b_myr];
+  return ['b-info', s.b_phys];
+}
+
+function secScore(secs) {
+  const yr = secs / SEC_YR;
+  if (yr < 1n)             return 5;
+  if (yr < 100n)           return 15;
+  if (yr < 10_000n)        return 30;
+  if (yr < 1_000_000n)     return 55;
+  if (yr < 1_000_000_000n) return 75;
+  return 100;
+}
+
+function scoreColor(s) {
+  if (s <= 15)  return '#ef4444';
+  if (s <= 30)  return '#f59e0b';
+  if (s <= 55)  return '#84cc16';
+  if (s <= 75)  return '#10b981';
+  return '#0d9488';
+}
+
+function detectCharset(pw) {
+  let cs = 0;
+  if (/[0-9]/.test(pw))   cs += 10;
+  if (/[a-z]/.test(pw))   cs += 26;
+  if (/[A-Z]/.test(pw))   cs += 26;
+  if (/[^a-zA-Z0-9]/.test(pw)) cs += 33;
+  return cs || 10;
+}
+
+// ── Password analyzer ─────────────────────────────────────────────────────────
+function togglePwVis() {
+  pwVisible = !pwVisible;
+  const inp = document.getElementById('pw-input');
+  inp.type = pwVisible ? 'text' : 'password';
+  document.getElementById('pw-toggle-btn').textContent = pwVisible ? '🙈' : '👁';
+}
+
+function analyzePassword() {
+  const pw   = document.getElementById('pw-input').value;
+  const prof = document.getElementById('a-profile').value;
+  const att  = document.getElementById('a-attacker').value;
+  const meth = document.getElementById('a-method').value;
+  const res  = document.getElementById('analyzer-result');
+  const s    = STRINGS[currentLang];
+
+  if (!pw) { res.classList.remove('visible'); return; }
+
+  const cs    = detectCharset(pw);
+  const len   = BigInt(pw.length);
+  const ks    = BigInt(cs) ** len;
+  const div   = meth === 'half' ? 2n : 1n;
+  const rate  = RATES[prof][att];
+  const secs  = ks / div / rate;
+  const yr    = secs / SEC_YR;
+
+  const [bc, bl] = badge(secs);
+  const sc = secScore(secs);
+
+  document.getElementById('ar-grid').innerHTML = `
+    <div class="ar-card"><div class="lbl">${s.ar_length}</div><div class="val">${pw.length} ${s.unit_char}</div></div>
+    <div class="ar-card"><div class="lbl">${s.ar_charset}</div><div class="val">${cs}</div></div>
+    <div class="ar-card"><div class="lbl">${s.ar_combinations}</div><div class="val">${fmtCombinations(ks)}</div></div>
+  `;
+
+  let verdictText, verdictBg, verdictColor;
+  if (sc <= 15)      { verdictText = s.verdict_weak;   verdictBg = 'var(--dang-bg)'; verdictColor = 'var(--dang-txt)'; }
+  else if (sc <= 55) { verdictText = s.verdict_medium; verdictBg = 'var(--warn-bg)'; verdictColor = 'var(--warn-txt)'; }
+  else if (sc <= 75) { verdictText = s.verdict_strong; verdictBg = 'var(--succ-bg)'; verdictColor = 'var(--succ-txt)'; }
+  else               { verdictText = s.verdict_fort;   verdictBg = 'var(--info-bg)'; verdictColor = 'var(--info-txt)'; }
+
+  document.getElementById('ar-verdict').innerHTML =
+    `<span class="icon" style="font-size:15px">${verdictText.split('  ')[0]}</span>
+     <span style="color:${verdictColor}">${verdictText.split('  ')[1]}</span>
+     <span style="margin-left:auto"><span class="badge ${bc}">${fmtTime(secs)}</span></span>`;
+  document.getElementById('ar-verdict').style.background = verdictBg;
+
+  const fill = document.getElementById('ar-fill');
+  fill.style.width = sc + '%';
+  fill.style.background = scoreColor(sc);
+
+  res.classList.add('visible');
+}
+
+// ── Main table render ─────────────────────────────────────────────────────────
+function render() {
+  const cs   = parseInt(document.getElementById('charset').value);
+  const prof = document.getElementById('profile').value;
+  const att  = document.getElementById('attacker').value;
+  const meth = document.getElementById('method').value;
+  const rate = RATES[prof][att];
+  const div  = meth === 'half' ? 2n : 1n;
+  const pi   = PROFILE_INFO[prof];
+  const s    = STRINGS[currentLang];
+
+  const profileName = document.getElementById('profile').selectedOptions[0]?.text.split(' — ')[0] || prof;
+
+  document.getElementById('infobar').innerHTML = `
+    <div class="info-card"><div class="lbl">${s.ib_profile}</div><div class="val">${profileName} (N=${pi.N})</div></div>
+    <div class="info-card"><div class="lbl">${s.ib_mem}</div><div class="val">${pi.mem}</div></div>
+    <div class="info-card"><div class="lbl">${s.ib_rate}</div><div class="val">${Number(rate).toLocaleString()} ${s.unit_hps}</div></div>
+    <div class="info-card"><div class="lbl">${s.ib_cs}</div><div class="val">${cs} ${s.unit_char}</div></div>
+  `;
+
+  const lengths = [4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 20, 32];
+  const pwLen   = document.getElementById('pw-input').value.length;
+  let rows = '';
+
+  for (const len of lengths) {
+    const ks   = BigInt(cs) ** BigInt(len);
+    const secs = ks / div / rate;
+    const yr   = secs / SEC_YR;
+    const [bc, bl] = badge(secs);
+    const sc = secScore(secs);
+    const isHighlight = (len === pwLen);
+
+    let physNote = '';
+    if (yr > UNIVERSE_AGE_YR * 1000n) {
+      physNote = ` <span style="font-size:10px;color:var(--txt3)">${s.time_univ}</span>`;
+    }
+
+    rows += `<tr class="${isHighlight ? 'highlight-row' : ''}">
+      <td>${len} ${s.unit_char}${isHighlight ? ' ◀' : ''}</td>
+      <td class="mono">${fmtCombinations(ks)}</td>
+      <td><strong>${fmtTime(secs)}</strong>${physNote}</td>
+      <td>
+        <span class="badge ${bc}">${bl}</span>
+        <div class="sec-bar-wrap"><div class="sec-bar" style="width:${sc}%;background:${scoreColor(sc)}"></div></div>
+      </td>
+    </tr>`;
+  }
+  document.getElementById('tbody').innerHTML = rows;
+
+  const gpuCount = { '1': '1', '2': '100', '3': '100.000' }[att];
+  const memTotal_gb = (pi.mem_gb * parseFloat(gpuCount.replace('.',''))).toFixed(1);
+
+  document.getElementById('note').innerHTML = `
+    <strong>${s.note_method}:</strong> scrypt ${profileName} (N=${pi.N}, r=8, p=1)
+    ${s.note_ram}: <strong>${pi.mem}</strong>.
+    ${gpuCount} GPU ${s.note_for_profile} ${s.note_total_ram}: <strong>${memTotal_gb} GB</strong>.
+    ${s.note_total_rate}: <strong>${Number(rate).toLocaleString()} ${s.unit_hps}</strong>.<br><br>
+    <strong>${s.note_warning}:</strong> ${s.note_warn_body}
+  `;
+
+  document.getElementById('physics').innerHTML =
+    `<strong>${s.phys_title}:</strong> ${s.phys_body}`;
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+applyLang();
+</script>
+</body>
+</html>
