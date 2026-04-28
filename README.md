@@ -4,7 +4,7 @@
 
 # Lephy Crypt
 
-**Military-grade file encryption for everyone.**  
+**AES-256-GCM with scrypt-based KDF and authenticated file format**  
 AES-256-GCM · scrypt · HMAC-SHA256 · Chunk-level AAD
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
